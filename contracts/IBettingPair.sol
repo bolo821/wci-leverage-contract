@@ -8,7 +8,7 @@ interface IBettingPair {
     enum TOKENTYPE { ETH, WCI }
     enum LPTOKENTYPE { ETH, USDT, USDC, SHIB, DOGE }
 
-    function bet(address, uint256, CHOICE, TOKENTYPE, uint256, uint256, uint256, uint256, uint256) external;
+    function bet(address, uint256, uint256, CHOICE, TOKENTYPE, uint256, uint256, uint256, uint256, uint256) external;
     function claim(address, TOKENTYPE) external returns (uint256[] memory);
 
     function calcEarning(address, TOKENTYPE) external view returns (uint256[] memory);

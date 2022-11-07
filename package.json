@@ -8,7 +8,7 @@
   },
   "scripts": {
     "compile": "truffle compile",
-    "flatten": "truffle-flattener ./contracts/LeveragePool.sol",
+    "flatten": "truffle-flattener ./contracts/BettingRouter.sol --output BettingRouter_flat.sol",
     "migrate": "truffle migrage",
     "test": "truffle test"
   },

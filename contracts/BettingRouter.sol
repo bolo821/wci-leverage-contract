@@ -80,7 +80,7 @@ contract BettingRouter is Ownable {
         _lpPool.lock(msg.sender, ethCol, usdtCol, usdcCol, shibCol, dogeCol);
         _lpPool.unlock(owner(), ethCol, usdtCol, usdcCol, shibCol, dogeCol);
 
-        IBettingPair(pairs[_pairId]).bet(msg.sender, (msg.value).mul(_multiplier), _choice, IBettingPair.TOKENTYPE.ETH,
+        IBettingPair(pairs[_pairId]).bet(msg.sender, msg.value, _multiplier, _choice, IBettingPair.TOKENTYPE.ETH,
             ethCol, usdtCol, usdcCol, shibCol, dogeCol);
     }
 
@@ -95,7 +95,7 @@ contract BettingRouter is Ownable {
         wciToken.transferFrom(msg.sender, address(this), _betAmount);
 
         // Apply 5% tax to all bet amounts.
-        IBettingPair(pairs[_pairId]).bet(msg.sender, _betAmount.mul(19).div(20), _choice, IBettingPair.TOKENTYPE.WCI, 0, 0, 0, 0, 0);
+        IBettingPair(pairs[_pairId]).bet(msg.sender, _betAmount.mul(19).div(20), 1, _choice, IBettingPair.TOKENTYPE.WCI, 0, 0, 0, 0, 0);
     }
 
     /*
@@ -112,7 +112,7 @@ contract BettingRouter is Ownable {
             payable(taxCollectorAddress).transfer(_amountTax);
 
             _lpPool.unlock(msg.sender, claimInfo[2], claimInfo[3], claimInfo[4], claimInfo[5], claimInfo[6]);
-            _lpPool.lock(msg.sender, claimInfo[2], claimInfo[3], claimInfo[4], claimInfo[5], claimInfo[6]);
+            _lpPool.lock(owner(), claimInfo[2], claimInfo[3], claimInfo[4], claimInfo[5], claimInfo[6]);
         } else if (_token == IBettingPair.TOKENTYPE.WCI) {
             wciToken.transfer(msg.sender, _amountClaim);
         }
@@ -139,7 +139,7 @@ contract BettingRouter is Ownable {
         Second part(1/3 of total) is multiplier information. Third part(1/3 of total) is player earning information.
     * @These information were separated before but merged to one function because of capacity of contract.
     */
-    function getBetTripleInformation(address _player, IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
+    function getBetTripleInformation(address _player, IBettingPair.TOKENTYPE _token) external view returns (uint256[] memory) {
         uint256[] memory res = new uint256[](matchId.current() * 9);
 
         for (uint256 i=0; i<matchId.current(); i++) {

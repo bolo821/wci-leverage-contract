@@ -16,6 +16,7 @@ contract BettingPair is Ownable, IBettingPair {
     using SafeMath for uint256;
 
     mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) players;
+    mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) originalBets;
     mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) betHistory;
     mapping(address => mapping(TOKENTYPE => uint256)) claimHistory;
     CHOICE betResult;
@@ -41,17 +42,19 @@ contract BettingPair is Ownable, IBettingPair {
     *   When there is a multiplier(x2 or x3) in bet, there should be some amounts of collateral tokens
     *   (ETH, USDT, USDC, SHIB, DOGE) in leverage pool. The rest parameters are the amounts for _amount*(multiplier-1) ether.
     */
-    function bet(address _player, uint256 _amount, CHOICE _choice, TOKENTYPE _token,
+    function bet(address _player, uint256 _amount, uint256 _multiplier, CHOICE _choice, TOKENTYPE _token,
         uint256 ethCol, uint256 usdtCol, uint256 usdcCol, uint256 shibCol, uint256 dogeCol)
         external
         override
         onlyOwner 
     {
         require(betStatus == BETSTATUS.BETTING, "You can not bet at this time.");
-        totalBet[_token] += _amount;
-        totalBetPerChoice[_token][_choice] += _amount;
-        players[_player][_token][_choice] += _amount;
-        betHistory[_player][_token][_choice] += _amount;
+        uint256 realBet = _amount.mul(_multiplier);
+        totalBet[_token] += realBet;
+        totalBetPerChoice[_token][_choice] += realBet;
+        players[_player][_token][_choice] += realBet;
+        originalBets[_player][_token][_choice] += _amount;
+        betHistory[_player][_token][_choice] += realBet;
 
         _lockPool[_player][LPTOKENTYPE.ETH][_choice] += ethCol;
         _lockPool[_player][LPTOKENTYPE.USDT][_choice] += usdtCol;
@@ -66,7 +69,6 @@ contract BettingPair is Ownable, IBettingPair {
     */
     function claim(address _player, TOKENTYPE _token) external override onlyOwner returns (uint256[] memory) {
         require(betStatus == BETSTATUS.CLAIMING, "You can not claim at this time.");
-        require(_player != address(0), "This address doesn't exist.");
         require(players[_player][_token][betResult] > 0, "You don't have any earnings to withdraw.");
 
         uint256[] memory res = calculateEarning(_player, betResult, _token);
@@ -74,6 +76,9 @@ contract BettingPair is Ownable, IBettingPair {
         players[_player][_token][CHOICE.WIN] = 0;
         players[_player][_token][CHOICE.DRAW] = 0;
         players[_player][_token][CHOICE.LOSE] = 0;
+        originalBets[_player][_token][CHOICE.WIN] = 0;
+        originalBets[_player][_token][CHOICE.DRAW] = 0;
+        originalBets[_player][_token][CHOICE.LOSE] = 0;
 
         return res;
     }
@@ -86,14 +91,12 @@ contract BettingPair is Ownable, IBettingPair {
     function calculateEarning(address _player, CHOICE _choice, TOKENTYPE _token) internal view returns (uint256[] memory) {
         uint256[] memory res = new uint256[](7);
 
-        uint256 userBal = players[_player][_token][_choice];
-        if (totalBetPerChoice[_token][_choice] == 0) {
-            return res;
-        }
+        uint256 userBal = originalBets[_player][_token][_choice];
+        uint256 realBal = players[_player][_token][_choice];
 
         // If there are no opponent bets, the player will claim his original bet amount.
         if (totalBetPerChoice[_token][CHOICE.WIN] == 0 && totalBetPerChoice[_token][CHOICE.DRAW] == 0) {
-            res[0] = players[_player][_token][CHOICE.LOSE];
+            res[0] = originalBets[_player][_token][CHOICE.LOSE];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.LOSE];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.LOSE];
             res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.LOSE];
@@ -101,7 +104,7 @@ contract BettingPair is Ownable, IBettingPair {
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.LOSE];
             return res;
         } else if (totalBetPerChoice[_token][CHOICE.WIN] == 0 && totalBetPerChoice[_token][CHOICE.LOSE] == 0) {
-            res[0] = players[_player][_token][CHOICE.DRAW];
+            res[0] = originalBets[_player][_token][CHOICE.DRAW];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.DRAW];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.DRAW];
             res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.DRAW];
@@ -109,12 +112,14 @@ contract BettingPair is Ownable, IBettingPair {
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.DRAW];
             return res;
         } else if (totalBetPerChoice[_token][CHOICE.DRAW] == 0 && totalBetPerChoice[_token][CHOICE.LOSE] == 0) {
-            res[0] = players[_player][_token][CHOICE.WIN];
+            res[0] = originalBets[_player][_token][CHOICE.WIN];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.WIN];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.WIN];
             res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.WIN];
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.WIN];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.WIN];
+            return res;
+        } else if (totalBetPerChoice[_token][_choice] == 0) {
             return res;
         }
 
@@ -123,11 +128,11 @@ contract BettingPair is Ownable, IBettingPair {
         // If the token is ETH, the player will take 5% tax if he holds enough WCI token. Otherwise he will take 10% tax.
         if (_token == TOKENTYPE.ETH) {
             if (_wciTokenBal >= wciTokenThreshold) {
-                res[0] = totalBet[_token].mul(19).mul(userBal).div(20).div(totalBetPerChoice[_token][_choice]) + userBal.div(20);
-                res[1] = totalBet[_token].mul(userBal).div(20).div(totalBetPerChoice[_token][_choice]) - userBal.div(20);
+                res[0] = userBal + realBal.mul(totalBet[_token]-totalBetPerChoice[_token][_choice]).mul(19).div(20).div(totalBetPerChoice[_token][_choice]);
+                res[1] = realBal.mul(totalBet[_token]-totalBetPerChoice[_token][_choice]).div(20).div(totalBetPerChoice[_token][_choice]);
             } else {
-                res[0] = totalBet[_token].mul(9).mul(userBal).div(10).div(totalBetPerChoice[_token][_choice]) + userBal.div(10);
-                res[1] = totalBet[_token].mul(userBal).div(10).div(totalBetPerChoice[_token][_choice]) - userBal.div(10);
+                res[0] = userBal + realBal.mul(totalBet[_token]-totalBetPerChoice[_token][_choice]).mul(9).div(10).div(totalBetPerChoice[_token][_choice]);
+                res[1] = realBal.mul(totalBet[_token]-totalBetPerChoice[_token][_choice]).div(10).div(totalBetPerChoice[_token][_choice]);
             }
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][_choice];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][_choice];
