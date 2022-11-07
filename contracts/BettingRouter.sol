@@ -23,7 +23,7 @@ contract BettingRouter is Ownable {
     IERC20 _shib = IERC20(0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE);          // SHIB token
     IERC20 _doge = IERC20(0x4206931337dc273a630d328dA6441786BfaD668f);          // DOGE token
 
-    LeveragePool public _lpPool;
+    LeveragePool _lpPool;
 
     constructor() {
         _lpPool = new LeveragePool();

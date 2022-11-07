@@ -269,31 +269,4 @@ contract BettingPair is Ownable, IBettingPair {
     function setWciTokenThreshold(uint256 _threshold) external override onlyOwner {
         wciTokenThreshold = _threshold;
     }
-
-    /*
-    * @Function to get lock pool information.
-    */
-    function getLockPool(address player) external view override returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](15);
-
-        res[0] = _lockPool[player][LPTOKENTYPE.ETH][CHOICE.WIN];
-        res[1] = _lockPool[player][LPTOKENTYPE.USDT][CHOICE.WIN];
-        res[2] = _lockPool[player][LPTOKENTYPE.USDC][CHOICE.WIN];
-        res[3] = _lockPool[player][LPTOKENTYPE.SHIB][CHOICE.WIN];
-        res[4] = _lockPool[player][LPTOKENTYPE.DOGE][CHOICE.WIN];
-
-        res[5] = _lockPool[player][LPTOKENTYPE.ETH][CHOICE.DRAW];
-        res[6] = _lockPool[player][LPTOKENTYPE.USDT][CHOICE.DRAW];
-        res[7] = _lockPool[player][LPTOKENTYPE.USDC][CHOICE.DRAW];
-        res[8] = _lockPool[player][LPTOKENTYPE.SHIB][CHOICE.DRAW];
-        res[9] = _lockPool[player][LPTOKENTYPE.DOGE][CHOICE.DRAW];
-
-        res[10] = _lockPool[player][LPTOKENTYPE.ETH][CHOICE.LOSE];
-        res[11] = _lockPool[player][LPTOKENTYPE.USDT][CHOICE.LOSE];
-        res[12] = _lockPool[player][LPTOKENTYPE.USDC][CHOICE.LOSE];
-        res[13] = _lockPool[player][LPTOKENTYPE.SHIB][CHOICE.LOSE];
-        res[14] = _lockPool[player][LPTOKENTYPE.DOGE][CHOICE.LOSE];
-
-        return res;
-    }
 }

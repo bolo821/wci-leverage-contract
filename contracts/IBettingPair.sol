@@ -28,6 +28,4 @@ interface IBettingPair {
 
     function getWciTokenThreshold() external view returns (uint256);
     function setWciTokenThreshold(uint256) external;
-
-    function getLockPool(address) external view returns (uint256[] memory);
 }
