@@ -41,7 +41,7 @@ contract LeveragePool is Ownable {
     /*
     * @Get ETH/USDT price from uniswap v2 pool
     */
-    function getUsdtPrice() public view returns (uint256) {
+    function getUsdtPrice() internal view returns (uint256) {
         uint256 reserve0;
         uint256 reserve1;
         uint32 timestamp;
@@ -58,7 +58,7 @@ contract LeveragePool is Ownable {
     /*
     * @Get ETH/USDC price from uniswap v2 pool
     */
-    function getUsdcPrice() public view returns (uint256) {
+    function getUsdcPrice() internal view returns (uint256) {
         uint256 reserve0;
         uint256 reserve1;
         uint32 timestamp;
@@ -75,7 +75,7 @@ contract LeveragePool is Ownable {
     /*
     * @Get ETH/SHIB price from uniswap v2 pool
     */
-    function getShibPrice() public view returns (uint256) {
+    function getShibPrice() internal view returns (uint256) {
         uint256 reserve0;
         uint256 reserve1;
         uint32 timestamp;
@@ -92,7 +92,7 @@ contract LeveragePool is Ownable {
     /*
     * @Get ETH/DOGE price from uniswap v2 pool
     */
-    function getDogePrice() public view returns (uint256) {
+    function getDogePrice() internal view returns (uint256) {
         uint256 reserve0;
         uint256 reserve1;
         uint32 timestamp;
@@ -110,7 +110,7 @@ contract LeveragePool is Ownable {
     * @Function for depositing ETH.
     * @This function should be separated from other deposit functions because this should be payable.
     */
-    function depositEth(address player, uint256 amount) external payable onlyOwner {
+    function depositEth(address player, uint256 amount) external onlyOwner {
         require(amount >= 0.01 ether, "Minimum deposit amount is 0.01");
 
         _ethPool[player] += amount;
@@ -181,35 +181,55 @@ contract LeveragePool is Ownable {
     /*
     * @Function for withdrawing tokens from this contract by owner.
     */
-    function withdrawFromContract(address owner, IBettingPair.LPTOKENTYPE token, uint256 amount) public onlyOwner {
+    function withdrawFromContract(address owner, IBettingPair.LPTOKENTYPE token, uint256 amount) external onlyOwner {
         require(amount > 0, "Withdraw amount should be bigger than 0");
         if (token == IBettingPair.LPTOKENTYPE.ETH) {
-            _ethPool[owner] -= amount;
+            if (_ethPool[owner] >= amount) {
+                _ethPool[owner] -= amount;
+            } else {
+                _ethPool[owner] = 0;
+            }
         } else if (token == IBettingPair.LPTOKENTYPE.USDT) {
-            _usdtPool[owner] -= amount;
+            if (_usdtPool[owner] >= amount) {
+                _usdtPool[owner] -= amount;
+            } else {
+                _usdtPool[owner] = 0;
+            }
         } else if (token == IBettingPair.LPTOKENTYPE.USDC) {
-            _usdcPool[owner] -= amount;
+            if (_usdcPool[owner] >= amount) {
+                _usdcPool[owner] -= amount;
+            } else {
+                _usdcPool[owner] = 0;
+            }
         } else if (token == IBettingPair.LPTOKENTYPE.SHIB) {
-            _shibPool[owner] -= amount;
+            if (_shibPool[owner] >= amount) {
+                _shibPool[owner] -= amount;    
+            } else {
+                _shibPool[owner] = 0;
+            }
         } else if (token == IBettingPair.LPTOKENTYPE.DOGE) {
-            _dogePool[owner] -= amount;
+            if (_dogePool[owner] >= amount) {
+                _dogePool[owner] -= amount;
+            } else {
+                _dogePool[owner] = 0;
+            }
         }
     }
 
     /*
     * @Function to get player's total leverage pool balance in ETH.
     */
-    function getPlayerLPBalanceInEth(address player) public view returns (uint256) {
+    function getPlayerLPBalanceInEth(address player) external view returns (uint256) {
         uint256 usdtPrice = getUsdtPrice();
         uint256 usdcPrice = getUsdcPrice();
         uint256 shibPrice = getShibPrice();
         uint256 dogePrice = getDogePrice();
 
         return  _ethPool[player] +
-                uint256(10**18).div(usdtPrice).mul(_usdtPool[player]) +
-                uint256(10**18).div(usdcPrice).mul(_usdcPool[player]) +
-                uint256(10**18).div(shibPrice).mul(_shibPool[player]) +
-                uint256(10**18).div(dogePrice).mul(_dogePool[player]);
+                uint256(10**12).mul(_usdtPool[player]).div(usdtPrice) +
+                uint256(10**12).mul(_usdcPool[player]).div(usdcPrice) +
+                _shibPool[player].div(shibPrice) +
+                uint256(10**10).mul(_dogePool[player]).div(dogePrice);
     }
 
     /*
@@ -218,14 +238,14 @@ contract LeveragePool is Ownable {
     *   In other case, it checks the usdt pool. And next usdc pool.
     *   It continues this process until it reaches the same amount as input ether amount.
     */
-    function calcLockTokenAmountsAsCollateral(address player, uint256 etherAmount) public view returns (uint256, uint256, uint256, uint256, uint256) {
+    function calcLockTokenAmountsAsCollateral(address player, uint256 etherAmount) external view returns (uint256, uint256, uint256, uint256, uint256) {
         address _player = player;
         uint256 rAmount = etherAmount;
         // Each token balance in eth.
-        uint256 ethFromUsdt = uint256(10**18).div(getUsdtPrice()).mul(_usdtPool[player]);
-        uint256 ethFromUsdc = uint256(10**18).div(getUsdcPrice()).mul(_usdcPool[player]);
-        uint256 ethFromShib = uint256(10**18).div(getShibPrice()).mul(_shibPool[player]);
-        uint256 ethFromDoge = uint256(10**18).div(getDogePrice()).mul(_dogePool[player]);
+        uint256 ethFromUsdt = uint256(10**12).mul(_usdtPool[_player]).div(getUsdtPrice());
+        uint256 ethFromUsdc = uint256(10**12).mul(_usdcPool[_player]).div(getUsdcPrice());
+        uint256 ethFromShib = _shibPool[_player].div(getShibPrice());
+        uint256 ethFromDoge = uint256(10**10).mul(_dogePool[_player]).div(getDogePrice());
 
         // If player has enough eth pool balance, the collateral will be set from eth pool.
         if (_ethPool[_player] >= rAmount) {

@@ -25,18 +25,6 @@ contract BettingRouter is Ownable {
 
     LeveragePool public _lpPool;
 
-    // Events
-    // event Bet(uint256 pairId, address player, uint256 amount, IBettingPair.CHOICE choice, IBettingPair.TOKENTYPE token,
-    //     uint256 multiplier, uint256 ethCol, uint256 usdtCol, uint256 usdcCol, uint256 shibCol, uint256 dogeCol);
-    // event Claim(uint256 pairId, address player, uint256 amount, IBettingPair.CHOICE choice, IBettingPair.TOKENTYPE);
-    // event CreatePair(uint256 pairId, address pairAddress);
-    // event SetBetResult(uint256 pairId, IBettingPair.CHOICE result);
-    // event SetBetStatus(uint256 pairId, IBettingPair.BETSTATUS status);
-    // event WithdrawFromRouter(uint256 amount, IBettingPair.TOKENTYPE token);
-
-    // event DepositCollateral(IBettingPair.LPTOKENTYPE token, uint256 amount);
-    // event WithdrawCollateral(IBettingPair.LPTOKENTYPE token, uint256 amount);
-
     constructor() {
         _lpPool = new LeveragePool();
     }
@@ -80,7 +68,7 @@ contract BettingRouter is Ownable {
         betConditions(msg.value, IBettingPair.TOKENTYPE.ETH)
     {
         uint256 ethInLPPool = _lpPool.getPlayerLPBalanceInEth(msg.sender);
-        require(ethInLPPool >= (msg.value).mul(_multiplier.sub(1)), "You don't have enough collaterals for that mulbiplier.");
+        require(ethInLPPool >= (msg.value).mul(_multiplier.sub(1)), "You don't have enough collaterals for that multiplier.");
 
         uint256 ethCol;     // ETH collateral amount
         uint256 usdtCol;    // USDT collateral amount
@@ -94,7 +82,6 @@ contract BettingRouter is Ownable {
 
         IBettingPair(pairs[_pairId]).bet(msg.sender, (msg.value).mul(_multiplier), _choice, IBettingPair.TOKENTYPE.ETH,
             ethCol, usdtCol, usdcCol, shibCol, dogeCol);
-        // emit Bet(_pairId, msg.sender, msg.value, _choice, IBettingPair.TOKENTYPE.ETH, _multiplier, ethCol, usdtCol, usdcCol, shibCol, dogeCol);
     }
 
     /*
@@ -105,13 +92,10 @@ contract BettingRouter is Ownable {
         onlyValidPair(_pairId)
         betConditions(_betAmount, IBettingPair.TOKENTYPE.WCI)
     {
-        // uint256 wciBalance = wciToken.balanceOf(msg.sender);
-        // require(wciBalance >= _betAmount, "User doesn't have enough balance");
         wciToken.transferFrom(msg.sender, address(this), _betAmount);
 
         // Apply 5% tax to all bet amounts.
         IBettingPair(pairs[_pairId]).bet(msg.sender, _betAmount.mul(19).div(20), _choice, IBettingPair.TOKENTYPE.WCI, 0, 0, 0, 0, 0);
-        // emit Bet(_pairId, msg.sender, _betAmount, _choice, IBettingPair.TOKENTYPE.WCI, 1, 0, 0, 0, 0, 0);
     }
 
     /*
@@ -135,7 +119,6 @@ contract BettingRouter is Ownable {
         
         totalWinnerCount[_token] ++;
         totalClaim[_token] += _amountClaim;
-        // emit Claim(_pairId, msg.sender, _amountClaim, IBettingPair(pairs[_pairId]).getBetResult(), _token);
     }
 
     /*
@@ -144,121 +127,56 @@ contract BettingRouter is Ownable {
     function withdrawPFromRouter(uint256 _amount, IBettingPair.TOKENTYPE _token) external doubleChecker {
         require(_amount > 0, "Amount should be bigger than 0");
         if (_token == IBettingPair.TOKENTYPE.ETH) {
-            // require(_amount <= address(this).balance, "Exceed the contract balance");
             payable(owner()).transfer(_amount);
         } else if (_token == IBettingPair.TOKENTYPE.WCI) {
-            // uint256 wciBalance = wciToken.balanceOf(address(this));
-            // require(_amount <= wciBalance, "Exceed the contract WCI balance");
             wciToken.transfer(owner(), _amount);
         }
-        
-        // emit WithdrawFromRouter(_amount, _token);
     }
 
     /*
-    * @Function to get player bet amount per token.
+    * @Function to get player bet information with triple data per match(per player choice).
+    * @There are 3 types of information - first part(1/3 of total) is player bet amount information.
+        Second part(1/3 of total) is multiplier information. Third part(1/3 of total) is player earning information.
+    * @These information were separated before but merged to one function because of capacity of contract.
     */
-    function _getPlayerBetAmount(address _player, IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current() * 3);
+    function getBetTripleInformation(address _player, IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
+        uint256[] memory res = new uint256[](matchId.current() * 9);
 
         for (uint256 i=0; i<matchId.current(); i++) {
-            uint256[] memory temp = IBettingPair(pairs[i]).getPlayerBetAmount(_player, _token);
-            res[i*3] = temp[0];
-            res[i*3 + 1] = temp[1];
-            res[i*3 + 2] = temp[2];
+            uint256[] memory oneAmount = IBettingPair(pairs[i]).getPlayerBetAmount(_player, _token);
+            res[i*3] = oneAmount[0];
+            res[i*3 + 1] = oneAmount[1];
+            res[i*3 + 2] = oneAmount[2];
+
+            uint256[] memory oneMultiplier = IBettingPair(pairs[i]).calcMultiplier(_token);
+            res[matchId.current()*3 + i*3] = oneMultiplier[0];
+            res[matchId.current()*3 + i*3 + 1] = oneMultiplier[1];
+            res[matchId.current()*3 + i*3 + 2] = oneMultiplier[2];
+
+            uint256[] memory oneClaim = IBettingPair(pairs[i]).calcEarning(msg.sender, _token);
+            res[matchId.current()*6 + i*3] = oneClaim[0];
+            res[matchId.current()*6 + i*3 + 1] = oneClaim[1];
+            res[matchId.current()*6 + i*3 + 2] = oneClaim[2];
         }
         
         return res;
     }
 
     /*
-    * @Function to get player bet amounts for all tokens.
+    * @Function to get player bet information with single data per match.
     */
-    function getPlayerBetAmount(address _player) external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getPlayerBetAmount(_player, IBettingPair.TOKENTYPE.ETH),
-            _getPlayerBetAmount(_player, IBettingPair.TOKENTYPE.WCI)
-        );
-    }
-
-    /*
-    * @Function to get multiplier per token.
-    */
-    function _getMultiplier(IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current() * 3);
-        
-        for (uint256 i=0; i<matchId.current(); i++) {
-            uint256[] memory pairRes = IBettingPair(pairs[i]).calcMultiplier(_token);
-            res[i*3] = pairRes[0];
-            res[i*3+1] = pairRes[1];
-            res[i*3+2] = pairRes[2];
-        }
-
-        return res;
-    }
-
-    /*
-    * @Function to get multipliers for all tokens.
-    */
-    function getMultiplier() external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getMultiplier(IBettingPair.TOKENTYPE.ETH),
-            _getMultiplier(IBettingPair.TOKENTYPE.WCI)
-        );
-    }
-
-    /*
-    * @Function to get player claim history per token.
-    * @Once the user claim, the player balance will be 0 and we can't get user bet information anymore.
-    * @This function is used to get user claim history.
-    */
-    function _getPlayerClaimHistory(address _player, IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current());
+    function getBetSingleInformation(address _player, IBettingPair.TOKENTYPE _token) external view returns (uint256[] memory) {
+        uint256[] memory res = new uint256[](matchId.current() * 4);
 
         for (uint256 i=0; i<matchId.current(); i++) {
             res[i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
+            res[matchId.current() + i] = uint256(IBettingPair(pairs[i]).getBetStatus());
+            res[matchId.current()*2 + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[matchId.current()*3 + i] = IBettingPair(pairs[i]).getTotalBet(_token);
         }
 
         return res;
     }
-
-    /*
-    * @Function to get player claim history for all tokens.
-    */
-    function getPlayerClaimHistory(address _player) external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getPlayerClaimHistory(_player, IBettingPair.TOKENTYPE.ETH),
-            _getPlayerClaimHistory(_player, IBettingPair.TOKENTYPE.WCI)
-        );
-    }
-
-    /*
-    * @Function to get pair information per token.
-    * @You can get match result, match status, total bet, total bets per choice per token.
-    */
-    // function _getPairInformation(uint256 _pairId, IBettingPair.TOKENTYPE _token) internal view onlyValidPair(_pairId) returns (uint256[] memory) {
-    //     uint256[] memory res = new uint256[](6);
-    //     res[0] = uint256(IBettingPair(pairs[_pairId]).getBetResult());
-    //     res[1] = uint256(IBettingPair(pairs[_pairId]).getBetStatus());
-    //     res[2] = IBettingPair(pairs[_pairId]).getTotalBet(_token);
-
-    //     uint256[] memory _choiceBetAmount = IBettingPair(pairs[_pairId]).getTotalBetPerChoice(_token);
-    //     res[3] = _choiceBetAmount[0];
-    //     res[4] = _choiceBetAmount[1];
-    //     res[5] = _choiceBetAmount[2];
-
-    //     return res;
-    // }
-
-    /*
-    * @Function to get pair information for all tokens.
-    */
-    // function getPairInformation(uint256 _pairId) external view onlyValidPair(_pairId) returns (uint256[] memory, uint256[] memory) {
-    //     return (
-    //         _getPairInformation(_pairId, IBettingPair.TOKENTYPE.ETH),
-    //         _getPairInformation(_pairId, IBettingPair.TOKENTYPE.WCI)
-    //     );
-    // }
 
     /*
     * @Function to get the newly creating match id.
@@ -266,109 +184,6 @@ contract BettingRouter is Ownable {
     function getMatchId() external view returns (uint256) {
         return matchId.current();
     }
-
-    /*
-    * @Function to get user earning amounts per match.
-    * @This function is used to get how much earning user has to claim.
-    */
-    function _getClaimAmount(IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current() * 3);
-        
-        for (uint256 i=0; i<matchId.current(); i++) {
-            uint256[] memory pairRes = IBettingPair(pairs[i]).calcEarning(msg.sender, _token);
-            res[i*3] = pairRes[0];
-            res[i*3+1] = pairRes[1];
-            res[i*3+2] = pairRes[2];
-        }
-
-        return res;
-    }
-
-    /*
-    * @Function to get user earning amounts for all matches.
-    */
-    function getClaimAmount() external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getClaimAmount(IBettingPair.TOKENTYPE.ETH),
-            _getClaimAmount(IBettingPair.TOKENTYPE.WCI)
-        );
-    }
-
-    /*
-    * @Function to get match status for all matches.
-    */
-    function getBetStatus() external view returns (IBettingPair.BETSTATUS[] memory) {
-        IBettingPair.BETSTATUS[] memory res = new IBettingPair.BETSTATUS[](matchId.current());
-
-        for (uint256 i=0; i<matchId.current(); i++) {
-            res[i] = IBettingPair(pairs[i]).getBetStatus();
-        }
-
-        return res;
-    }
-
-    /*
-    * @Function to get match result for all matches.
-    * @The default value is CHOICE.WIN(0) and the value from this result is valid only if the match status is CLAIMING(2).
-    */
-    function getBetResult() external view returns (IBettingPair.CHOICE[] memory) {
-        IBettingPair.CHOICE[] memory res = new IBettingPair.CHOICE[](matchId.current());
-
-        for (uint256 i=0; i<matchId.current(); i++) {
-            res[i] = IBettingPair(pairs[i]).getBetResult();
-        }
-
-        return res;
-    }
-
-    /*
-    * @Function to get total bet amount per token.
-    */
-    function _getTotalBet(IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current());
-
-        for (uint256 i=0; i<matchId.current(); i++) {
-            res[i] = IBettingPair(pairs[i]).getTotalBet(_token);
-        }
-
-        return res;
-    }
-
-    /*
-    * @Function to get all total bet amounts for all tokens.
-    */
-    function getTotalBet() external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getTotalBet(IBettingPair.TOKENTYPE.ETH),
-            _getTotalBet(IBettingPair.TOKENTYPE.WCI)
-        );
-    }
-
-    /*
-    * @Function to get total bet per choice per token.
-    */
-    // function _getTotalBetPerChoice(IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-    //     uint256[] memory res = new uint256[](matchId.current() * 3);
-
-    //     for (uint256 i=0; i<matchId.current(); i++) {
-    //         uint256[] memory pairAmount = IBettingPair(pairs[i]).getTotalBetPerChoice(_token);
-    //         res[3*i] = pairAmount[0];
-    //         res[3*i + 1] = pairAmount[1];
-    //         res[3*i + 2] = pairAmount[2];
-    //     }
-
-    //     return res;
-    // }
-
-    /*
-    * @Function to get total bet per choice for all tokens.
-    */
-    // function getTotalBetPerChoice() external view returns (uint256[] memory, uint256[] memory) {
-    //     return (
-    //         _getTotalBetPerChoice(IBettingPair.TOKENTYPE.ETH),
-    //         _getTotalBetPerChoice(IBettingPair.TOKENTYPE.WCI)
-    //     );
-    // }
 
     /*
     * @Function to get tax collector address
@@ -386,16 +201,6 @@ contract BettingRouter is Ownable {
         res[0] = totalClaim[_token];
         res[1] = totalWinnerCount[_token];
         return res;
-    }
-    
-    /*
-    * @Function to get match status for all matches.
-    */
-    function getBetStatsData() external view returns (uint256[] memory, uint256[] memory) {
-        return (
-            _getBetStatsData(IBettingPair.TOKENTYPE.ETH),
-            _getBetStatsData(IBettingPair.TOKENTYPE.WCI)
-        );
     }
 
     /*
@@ -422,7 +227,6 @@ contract BettingRouter is Ownable {
     */
     function setBetResult(uint256 _pairId, IBettingPair.CHOICE _result) external onlyOwner onlyValidPair(_pairId) {
         IBettingPair(pairs[_pairId]).setBetResult(_result);
-        // emit SetBetResult(_pairId, _result);
     }
 
     /*
@@ -430,7 +234,6 @@ contract BettingRouter is Ownable {
     */
     function setBetStatus(uint256 _pairId, IBettingPair.BETSTATUS _status) external onlyValidPair(_pairId) {
         IBettingPair(pairs[_pairId]).setBetStatus(_status);
-        // emit SetBetStatus(_pairId, _status);
     }
 
     /*
@@ -474,6 +277,7 @@ contract BettingRouter is Ownable {
         }
         else if (token == IBettingPair.LPTOKENTYPE.DOGE) {
             require(amount >= 180 * 10 ** 8, "Minimum deposit DOGE amount is 180");
+            _doge.transferFrom(msg.sender, address(this), amount);
         }
 
         _lpPool.depositErc20(msg.sender, token, amount);
@@ -514,6 +318,13 @@ contract BettingRouter is Ownable {
     }
 
     /*
+    * @Function to get player's LP token balance.
+    */
+    function getUserLPBalance(address player) external view returns (uint256, uint256, uint256, uint256, uint256) {
+        return _lpPool.getUserLPBalance(player);
+    }
+
+    /*
     * @Function to withdraw LP token from contract on owner side.
     */
     function withdrawLPFromContract(IBettingPair.LPTOKENTYPE token, uint256 amount) public doubleChecker {
@@ -532,22 +343,5 @@ contract BettingRouter is Ownable {
         }
 
         _lpPool.withdrawFromContract(owner(), token, amount);
-    }
-
-    /*
-    * @Function to withdraw all LP token from contract on owner side.
-    */
-    function withdrawAllLPFromContract(IBettingPair.LPTOKENTYPE token) external doubleChecker {
-        if (token == IBettingPair.LPTOKENTYPE.ETH) {
-            withdrawLPFromContract(token, address(this).balance);
-        } else if (token == IBettingPair.LPTOKENTYPE.USDT) {
-            withdrawLPFromContract(token, _usdt.balanceOf(address(this)));
-        } else if (token == IBettingPair.LPTOKENTYPE.USDC) {
-            withdrawLPFromContract(token, _usdc.balanceOf(address(this)));
-        } else if (token == IBettingPair.LPTOKENTYPE.SHIB) {
-            withdrawLPFromContract(token, _shib.balanceOf(address(this)));
-        } else if (token == IBettingPair.LPTOKENTYPE.DOGE) {
-            withdrawLPFromContract(token, _doge.balanceOf(address(this)));
-        }
     }
 }
