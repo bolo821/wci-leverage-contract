@@ -1,0 +1,24 @@
+{
+  "name": "ebay",
+  "version": "1.0.0",
+  "description": "Smart contracts for ebay project",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "compile": "truffle compile",
+    "flatten": "truffle-flattener ./contracts/LeveragePool.sol",
+    "migrate": "truffle migrage",
+    "test": "truffle test"
+  },
+  "author": "Bolo",
+  "license": "ISC",
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^2.1.0",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "truffle-flattener": "^1.6.0"
+  }
+}
