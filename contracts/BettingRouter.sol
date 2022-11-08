@@ -199,12 +199,8 @@ contract BettingRouter is Ownable {
     * @Function to get match status per token.
     * @This includes total claim amount and total winner count.
     */
-    function getBetStatsData(IBettingPair.TOKENTYPE _token) external view returns (uint256, uint256) {
-        if (_token == IBettingPair.TOKENTYPE.ETH) {
-            return (totalClaimEth, totalWinnerCountEth);
-        } else {
-            return (totalClaimWci, totalWinnerCountWci);
-        }
+    function getBetStatsData() external view returns (uint256, uint256, uint256, uint256) {
+        return (totalClaimEth, totalWinnerCountEth, totalClaimWci, totalWinnerCountWci);
     }
 
     /*

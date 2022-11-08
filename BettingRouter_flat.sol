@@ -2,7 +2,6 @@
 
 // File: contracts\Context.sol
 
-
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 pragma solidity ^0.8.13;
@@ -28,7 +27,6 @@ abstract contract Context {
 }
 
 // File: contracts\Ownable.sol
-
 
 // OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
 
@@ -111,7 +109,6 @@ abstract contract Ownable is Context {
 // File: contracts\IBettingPair.sol
 
 
-
 pragma solidity ^0.8.13;
 
 interface IBettingPair {
@@ -143,7 +140,6 @@ interface IBettingPair {
 }
 
 // File: contracts\SafeMath.sol
-
 
 // OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
 
@@ -350,7 +346,6 @@ library SafeMath {
 // File: contracts\IERC20.sol
 
 
-
 pragma solidity ^0.8.13;
 
 interface IERC20 {
@@ -365,7 +360,6 @@ interface IERC20 {
 }
 
 // File: contracts\BettingPair.sol
-
 
 
 pragma solidity ^0.8.13;
@@ -631,7 +625,6 @@ contract BettingPair is Ownable, IBettingPair {
 // File: contracts\IUniswapV2Pair.sol
 
 
-
 pragma solidity ^0.8.13;
 
 interface IUniswapV2Pair {
@@ -688,7 +681,6 @@ interface IUniswapV2Pair {
 // File: contracts\IERC20USDT.sol
 
 
-
 pragma solidity ^0.8.13;
 
 interface IERC20USDT {
@@ -703,7 +695,6 @@ interface IERC20USDT {
 }
 
 // File: contracts\LeveragePool.sol
-
 
 
 pragma solidity ^0.8.13;
@@ -968,7 +959,6 @@ contract LeveragePool is Ownable {
 // File: contracts\BettingRouter.sol
 
 
-
 pragma solidity ^0.8.13;
 contract BettingRouter is Ownable {
     using SafeMath for uint256;
@@ -1163,12 +1153,8 @@ contract BettingRouter is Ownable {
     * @Function to get match status per token.
     * @This includes total claim amount and total winner count.
     */
-    function getBetStatsData(IBettingPair.TOKENTYPE _token) external view returns (uint256, uint256) {
-        if (_token == IBettingPair.TOKENTYPE.ETH) {
-            return (totalClaimEth, totalWinnerCountEth);
-        } else {
-            return (totalClaimWci, totalWinnerCountWci);
-        }
+    function getBetStatsData() external view returns (uint256, uint256, uint256, uint256) {
+        return (totalClaimEth, totalWinnerCountEth, totalClaimWci, totalWinnerCountWci);
     }
 
     /*
