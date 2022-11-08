@@ -172,9 +172,9 @@ contract BettingRouter is Ownable {
         uint256[] memory res = new uint256[](matchId * 4);
 
         for (uint256 i=0; i<matchId; i++) {
-            res[i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
-            res[matchId + i] = uint256(IBettingPair(pairs[i]).getBetStatus());
-            res[matchId*2 + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[i] = uint256(IBettingPair(pairs[i]).getBetStatus());
+            res[matchId + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[matchId*2 + i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
             res[matchId*3 + i] = IBettingPair(pairs[i]).getTotalBet(_token);
         }
 

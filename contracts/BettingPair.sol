@@ -87,6 +87,7 @@ contract BettingPair is Ownable, IBettingPair {
 
         uint256 userBal = betHistory[_player][_token][_choice];
         uint256 realBal = players[_player][_token][_choice];
+        if (realBal == 0) userBal = 0;
 
         // If there are no opponent bets, the player will claim his original bet amount.
         if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token] && players[_player][_token][CHOICE.WIN] > 0) {

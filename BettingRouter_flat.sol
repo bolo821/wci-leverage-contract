@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: MIT
+
 // File: contracts\Context.sol
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 pragma solidity ^0.8.13;
@@ -27,7 +29,7 @@ abstract contract Context {
 
 // File: contracts\Ownable.sol
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
 
 pragma solidity ^0.8.13;
@@ -108,7 +110,7 @@ abstract contract Ownable is Context {
 
 // File: contracts\IBettingPair.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 
@@ -142,7 +144,7 @@ interface IBettingPair {
 
 // File: contracts\SafeMath.sol
 
-// SPDX-License-Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
 
 pragma solidity ^0.8.13;
@@ -347,7 +349,7 @@ library SafeMath {
 
 // File: contracts\IERC20.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 
@@ -364,7 +366,7 @@ interface IERC20 {
 
 // File: contracts\BettingPair.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 /*
@@ -427,7 +429,6 @@ contract BettingPair is Ownable, IBettingPair {
     */
     function claim(address _player, TOKENTYPE _token) external override onlyOwner returns (uint256[] memory) {
         require(betStatus == BETSTATUS.CLAIMING, "You can not claim at this time.");
-        require(players[_player][_token][betResult] > 0, "You don't have any earnings to withdraw.");
 
         uint256[] memory res = calculateEarning(_player, betResult, _token);
         claimHistory[_player][_token] = res[0];
@@ -448,9 +449,10 @@ contract BettingPair is Ownable, IBettingPair {
 
         uint256 userBal = betHistory[_player][_token][_choice];
         uint256 realBal = players[_player][_token][_choice];
+        if (realBal == 0) userBal = 0;
 
         // If there are no opponent bets, the player will claim his original bet amount.
-        if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token]) {
+        if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token] && players[_player][_token][CHOICE.WIN] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.WIN];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.WIN];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.WIN];
@@ -458,7 +460,7 @@ contract BettingPair is Ownable, IBettingPair {
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.WIN];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.WIN];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == totalBet[_token]) {
+        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == totalBet[_token] && players[_player][_token][CHOICE.DRAW] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.DRAW];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.DRAW];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.DRAW];
@@ -466,7 +468,7 @@ contract BettingPair is Ownable, IBettingPair {
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.DRAW];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.DRAW];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.LOSE] == totalBet[_token]) {
+        } else if (totalBetPerChoice[_token][CHOICE.LOSE] == totalBet[_token] && players[_player][_token][CHOICE.LOSE] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.LOSE];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.LOSE];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.LOSE];
@@ -628,7 +630,7 @@ contract BettingPair is Ownable, IBettingPair {
 
 // File: contracts\IUniswapV2Pair.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 
@@ -685,7 +687,7 @@ interface IUniswapV2Pair {
 
 // File: contracts\IERC20USDT.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 
@@ -702,7 +704,7 @@ interface IERC20USDT {
 
 // File: contracts\LeveragePool.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 contract LeveragePool is Ownable {
@@ -965,7 +967,7 @@ contract LeveragePool is Ownable {
 
 // File: contracts\BettingRouter.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.8.13;
 contract BettingRouter is Ownable {
@@ -1134,9 +1136,9 @@ contract BettingRouter is Ownable {
         uint256[] memory res = new uint256[](matchId * 4);
 
         for (uint256 i=0; i<matchId; i++) {
-            res[i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
-            res[matchId + i] = uint256(IBettingPair(pairs[i]).getBetStatus());
-            res[matchId*2 + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[i] = uint256(IBettingPair(pairs[i]).getBetStatus());
+            res[matchId + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[matchId*2 + i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
             res[matchId*3 + i] = IBettingPair(pairs[i]).getTotalBet(_token);
         }
 
@@ -1188,10 +1190,10 @@ contract BettingRouter is Ownable {
     * @Function to get WCI token threshold.
     * @Users tax rate(5% or 10%) will be controlled by this value.
     */
-    function getWciTokenThreshold() external view returns (uint256) {
-        if (matchId == 0) return 50000 * 10**9;
-        else return IBettingPair(pairs[0]).getWciTokenThreshold();
-    }
+    // function getWciTokenThreshold() external view returns (uint256) {
+    //     if (matchId == 0) return 50000 * 10**9;
+    //     else return IBettingPair(pairs[0]).getWciTokenThreshold();
+    // }
 
     /*
     * @Function to set bet result.
