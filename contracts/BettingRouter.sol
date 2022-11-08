@@ -2,17 +2,14 @@
 
 pragma solidity ^0.8.13;
 
-import "./Counters.sol";
 import "./BettingPair.sol";
 import "./IUniswapV2Pair.sol";
 import "./LeveragePool.sol";
 
 contract BettingRouter is Ownable {
     using SafeMath for uint256;
-    using Counters for Counters.Counter;
 
     mapping (uint256 => address) pairs; // All pair contract addresses
-    // Counters.Counter matchId;           // variable for managing match id
     uint256 matchId;
     address taxCollectorAddress = 0x41076e8DEbC1C51E0225CF73Cc23Ebd9D20424CE;        // Tax collector address
     uint256 totalClaimEth;
@@ -229,10 +226,10 @@ contract BettingRouter is Ownable {
     * @Function to get WCI token threshold.
     * @Users tax rate(5% or 10%) will be controlled by this value.
     */
-    function getWciTokenThreshold() external view returns (uint256) {
-        if (matchId == 0) return 50000 * 10**9;
-        else return IBettingPair(pairs[0]).getWciTokenThreshold();
-    }
+    // function getWciTokenThreshold() external view returns (uint256) {
+    //     if (matchId == 0) return 50000 * 10**9;
+    //     else return IBettingPair(pairs[0]).getWciTokenThreshold();
+    // }
 
     /*
     * @Function to set bet result.

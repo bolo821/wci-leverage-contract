@@ -67,7 +67,6 @@ contract BettingPair is Ownable, IBettingPair {
     */
     function claim(address _player, TOKENTYPE _token) external override onlyOwner returns (uint256[] memory) {
         require(betStatus == BETSTATUS.CLAIMING, "You can not claim at this time.");
-        require(players[_player][_token][betResult] > 0, "You don't have any earnings to withdraw.");
 
         uint256[] memory res = calculateEarning(_player, betResult, _token);
         claimHistory[_player][_token] = res[0];
@@ -90,7 +89,7 @@ contract BettingPair is Ownable, IBettingPair {
         uint256 realBal = players[_player][_token][_choice];
 
         // If there are no opponent bets, the player will claim his original bet amount.
-        if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token]) {
+        if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token] && players[_player][_token][CHOICE.WIN] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.WIN];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.WIN];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.WIN];
@@ -98,7 +97,7 @@ contract BettingPair is Ownable, IBettingPair {
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.WIN];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.WIN];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == totalBet[_token]) {
+        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == totalBet[_token] && players[_player][_token][CHOICE.DRAW] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.DRAW];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.DRAW];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.DRAW];
@@ -106,7 +105,7 @@ contract BettingPair is Ownable, IBettingPair {
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.DRAW];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.DRAW];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.LOSE] == totalBet[_token]) {
+        } else if (totalBetPerChoice[_token][CHOICE.LOSE] == totalBet[_token] && players[_player][_token][CHOICE.LOSE] > 0) {
             res[0] = betHistory[_player][_token][CHOICE.LOSE];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.LOSE];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.LOSE];
