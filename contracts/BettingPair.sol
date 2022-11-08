@@ -16,7 +16,6 @@ contract BettingPair is Ownable, IBettingPair {
     using SafeMath for uint256;
 
     mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) players;
-    mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) originalBets;
     mapping(address => mapping(TOKENTYPE => mapping(CHOICE => uint256))) betHistory;
     mapping(address => mapping(TOKENTYPE => uint256)) claimHistory;
     CHOICE betResult;
@@ -53,8 +52,7 @@ contract BettingPair is Ownable, IBettingPair {
         totalBet[_token] += realBet;
         totalBetPerChoice[_token][_choice] += realBet;
         players[_player][_token][_choice] += realBet;
-        originalBets[_player][_token][_choice] += _amount;
-        betHistory[_player][_token][_choice] += realBet;
+        betHistory[_player][_token][_choice] += _amount;
 
         _lockPool[_player][LPTOKENTYPE.ETH][_choice] += ethCol;
         _lockPool[_player][LPTOKENTYPE.USDT][_choice] += usdtCol;
@@ -76,9 +74,6 @@ contract BettingPair is Ownable, IBettingPair {
         players[_player][_token][CHOICE.WIN] = 0;
         players[_player][_token][CHOICE.DRAW] = 0;
         players[_player][_token][CHOICE.LOSE] = 0;
-        originalBets[_player][_token][CHOICE.WIN] = 0;
-        originalBets[_player][_token][CHOICE.DRAW] = 0;
-        originalBets[_player][_token][CHOICE.LOSE] = 0;
 
         return res;
     }
@@ -91,33 +86,33 @@ contract BettingPair is Ownable, IBettingPair {
     function calculateEarning(address _player, CHOICE _choice, TOKENTYPE _token) internal view returns (uint256[] memory) {
         uint256[] memory res = new uint256[](7);
 
-        uint256 userBal = originalBets[_player][_token][_choice];
+        uint256 userBal = betHistory[_player][_token][_choice];
         uint256 realBal = players[_player][_token][_choice];
 
         // If there are no opponent bets, the player will claim his original bet amount.
-        if (totalBetPerChoice[_token][CHOICE.WIN] == 0 && totalBetPerChoice[_token][CHOICE.DRAW] == 0) {
-            res[0] = originalBets[_player][_token][CHOICE.LOSE];
-            res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.LOSE];
-            res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.LOSE];
-            res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.LOSE];
-            res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.LOSE];
-            res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.LOSE];
+        if (totalBetPerChoice[_token][CHOICE.WIN] == totalBet[_token]) {
+            res[0] = betHistory[_player][_token][CHOICE.WIN];
+            res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.WIN];
+            res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.WIN];
+            res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.WIN];
+            res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.WIN];
+            res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.WIN];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.WIN] == 0 && totalBetPerChoice[_token][CHOICE.LOSE] == 0) {
-            res[0] = originalBets[_player][_token][CHOICE.DRAW];
+        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == totalBet[_token]) {
+            res[0] = betHistory[_player][_token][CHOICE.DRAW];
             res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.DRAW];
             res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.DRAW];
             res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.DRAW];
             res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.DRAW];
             res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.DRAW];
             return res;
-        } else if (totalBetPerChoice[_token][CHOICE.DRAW] == 0 && totalBetPerChoice[_token][CHOICE.LOSE] == 0) {
-            res[0] = originalBets[_player][_token][CHOICE.WIN];
-            res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.WIN];
-            res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.WIN];
-            res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.WIN];
-            res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.WIN];
-            res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.WIN];
+        } else if (totalBetPerChoice[_token][CHOICE.LOSE] == totalBet[_token]) {
+            res[0] = betHistory[_player][_token][CHOICE.LOSE];
+            res[2] = _lockPool[_player][LPTOKENTYPE.ETH][CHOICE.LOSE];
+            res[3] = _lockPool[_player][LPTOKENTYPE.USDT][CHOICE.LOSE];
+            res[4] = _lockPool[_player][LPTOKENTYPE.USDC][CHOICE.LOSE];
+            res[5] = _lockPool[_player][LPTOKENTYPE.SHIB][CHOICE.LOSE];
+            res[6] = _lockPool[_player][LPTOKENTYPE.DOGE][CHOICE.LOSE];
             return res;
         } else if (totalBetPerChoice[_token][_choice] == 0) {
             return res;

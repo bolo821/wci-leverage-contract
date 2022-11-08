@@ -23,12 +23,6 @@ contract LeveragePool is Ownable {
     IUniswapV2Pair _shibEth = IUniswapV2Pair(0x811beEd0119b4AfCE20D2583EB608C6F7AF1954f);   // Uniswap SHIB/ETH pair
     IUniswapV2Pair _dogeEth = IUniswapV2Pair(0xc0067d751FB1172DBAb1FA003eFe214EE8f419b6);   // Uniswap DOGE/ETH pair
 
-    uint256 ETH_DECIMAL = 18;   // ETH decimal
-    uint256 USDT_DECIMAL = 6;   // USDT decimal
-    uint256 USDC_DECIMAL = 6;   // USDC decimal
-    uint256 SHIB_DECIMAL = 18;  // SHIB decimal
-    uint256 DOGE_DECIMAL = 8;   // DOGE decimal
-
     constructor() {}
 
     /*
@@ -47,8 +41,8 @@ contract LeveragePool is Ownable {
         uint32 timestamp;
         (reserve0, reserve1, timestamp) = _usdtEth.getReserves();
 
-        uint256 r0NoDecimal = reserve0.div(10 ** ETH_DECIMAL);
-        uint256 r1NoDecimal = reserve1.div(10 ** USDT_DECIMAL);
+        uint256 r0NoDecimal = reserve0.div(10 ** 18);
+        uint256 r1NoDecimal = reserve1.div(10 ** 6);
 
         uint256 price = r1NoDecimal.div(r0NoDecimal);
 
@@ -64,8 +58,8 @@ contract LeveragePool is Ownable {
         uint32 timestamp;
         (reserve0, reserve1, timestamp) = _usdcEth.getReserves();
 
-        uint256 r0NoDecimal = reserve0.div(10 ** USDC_DECIMAL);
-        uint256 r1NoDecimal = reserve1.div(10 ** ETH_DECIMAL);
+        uint256 r0NoDecimal = reserve0.div(10 ** 6);
+        uint256 r1NoDecimal = reserve1.div(10 ** 18);
 
         uint256 price = r0NoDecimal.div(r1NoDecimal);
 
@@ -81,8 +75,8 @@ contract LeveragePool is Ownable {
         uint32 timestamp;
         (reserve0, reserve1, timestamp) = _shibEth.getReserves();
 
-        uint256 r0NoDecimal = reserve0.div(10 ** SHIB_DECIMAL);
-        uint256 r1NoDecimal = reserve1.div(10 ** ETH_DECIMAL);
+        uint256 r0NoDecimal = reserve0.div(10 ** 18);
+        uint256 r1NoDecimal = reserve1.div(10 ** 18);
 
         uint256 price = r0NoDecimal.div(r1NoDecimal);
 
@@ -98,8 +92,8 @@ contract LeveragePool is Ownable {
         uint32 timestamp;
         (reserve0, reserve1, timestamp) = _dogeEth.getReserves();
 
-        uint256 r0NoDecimal = reserve0.div(10 ** DOGE_DECIMAL);
-        uint256 r1NoDecimal = reserve1.div(10 ** ETH_DECIMAL);
+        uint256 r0NoDecimal = reserve0.div(10 ** 8);
+        uint256 r1NoDecimal = reserve1.div(10 ** 18);
 
         uint256 price = r0NoDecimal.div(r1NoDecimal);
 
@@ -111,8 +105,6 @@ contract LeveragePool is Ownable {
     * @This function should be separated from other deposit functions because this should be payable.
     */
     function depositEth(address player, uint256 amount) external onlyOwner {
-        require(amount >= 0.01 ether, "Minimum deposit amount is 0.01");
-
         _ethPool[player] += amount;
     }
 

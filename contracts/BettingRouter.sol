@@ -12,10 +12,13 @@ contract BettingRouter is Ownable {
     using Counters for Counters.Counter;
 
     mapping (uint256 => address) pairs; // All pair contract addresses
-    Counters.Counter matchId;           // variable for managing match id
+    // Counters.Counter matchId;           // variable for managing match id
+    uint256 matchId;
     address taxCollectorAddress = 0x41076e8DEbC1C51E0225CF73Cc23Ebd9D20424CE;        // Tax collector address
-    mapping(IBettingPair.TOKENTYPE => uint256) totalClaim;          // Total user claim amount
-    mapping(IBettingPair.TOKENTYPE => uint256) totalWinnerCount;    // Total winner count
+    uint256 totalClaimEth;
+    uint256 totalClaimWci;
+    uint256 totalWinnerCountEth;
+    uint256 totalWinnerCountWci;
 
     IERC20 wciToken = IERC20(0xC5a9BC46A7dbe1c6dE493E84A18f02E70E2c5A32);
     IERC20USDT _usdt = IERC20USDT(0xdAC17F958D2ee523a2206206994597C13D831ec7);  // USDT token
@@ -33,8 +36,7 @@ contract BettingRouter is Ownable {
     * @Check if the input pair id is valid
     */
     modifier onlyValidPair(uint256 _id) {
-        require(_id >= 0, "Pair id should not be negative.");
-        require(_id < matchId.current(), "Invalid pair id.");
+        require(_id >= 0 && _id < matchId, "Invalid pair id.");
         _;
     }
 
@@ -55,8 +57,8 @@ contract BettingRouter is Ownable {
     */
     function createOne() public onlyOwner {
         BettingPair _pair = new BettingPair();
-        pairs[matchId.current()] = address(_pair);
-        matchId.increment();
+        pairs[matchId] = address(_pair);
+        matchId ++;
     }
 
     /*
@@ -117,15 +119,19 @@ contract BettingRouter is Ownable {
             wciToken.transfer(msg.sender, _amountClaim);
         }
         
-        totalWinnerCount[_token] ++;
-        totalClaim[_token] += _amountClaim;
+        if (_token == IBettingPair.TOKENTYPE.ETH) {
+            totalClaimEth += _amountClaim;
+            totalWinnerCountEth ++;
+        } else {
+            totalClaimWci += _amountClaim;
+            totalWinnerCountWci ++;
+        }
     }
 
     /*
     * @Function to withdraw tokens from router contract.
     */
     function withdrawPFromRouter(uint256 _amount, IBettingPair.TOKENTYPE _token) external doubleChecker {
-        require(_amount > 0, "Amount should be bigger than 0");
         if (_token == IBettingPair.TOKENTYPE.ETH) {
             payable(owner()).transfer(_amount);
         } else if (_token == IBettingPair.TOKENTYPE.WCI) {
@@ -140,23 +146,23 @@ contract BettingRouter is Ownable {
     * @These information were separated before but merged to one function because of capacity of contract.
     */
     function getBetTripleInformation(address _player, IBettingPair.TOKENTYPE _token) external view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current() * 9);
+        uint256[] memory res = new uint256[](matchId * 9);
 
-        for (uint256 i=0; i<matchId.current(); i++) {
+        for (uint256 i=0; i<matchId; i++) {
             uint256[] memory oneAmount = IBettingPair(pairs[i]).getPlayerBetAmount(_player, _token);
             res[i*3] = oneAmount[0];
             res[i*3 + 1] = oneAmount[1];
             res[i*3 + 2] = oneAmount[2];
 
             uint256[] memory oneMultiplier = IBettingPair(pairs[i]).calcMultiplier(_token);
-            res[matchId.current()*3 + i*3] = oneMultiplier[0];
-            res[matchId.current()*3 + i*3 + 1] = oneMultiplier[1];
-            res[matchId.current()*3 + i*3 + 2] = oneMultiplier[2];
+            res[matchId*3 + i*3] = oneMultiplier[0];
+            res[matchId*3 + i*3 + 1] = oneMultiplier[1];
+            res[matchId*3 + i*3 + 2] = oneMultiplier[2];
 
-            uint256[] memory oneClaim = IBettingPair(pairs[i]).calcEarning(msg.sender, _token);
-            res[matchId.current()*6 + i*3] = oneClaim[0];
-            res[matchId.current()*6 + i*3 + 1] = oneClaim[1];
-            res[matchId.current()*6 + i*3 + 2] = oneClaim[2];
+            uint256[] memory oneClaim = IBettingPair(pairs[i]).calcEarning(_player, _token);
+            res[matchId*6 + i*3] = oneClaim[0];
+            res[matchId*6 + i*3 + 1] = oneClaim[1];
+            res[matchId*6 + i*3 + 2] = oneClaim[2];
         }
         
         return res;
@@ -166,13 +172,13 @@ contract BettingRouter is Ownable {
     * @Function to get player bet information with single data per match.
     */
     function getBetSingleInformation(address _player, IBettingPair.TOKENTYPE _token) external view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](matchId.current() * 4);
+        uint256[] memory res = new uint256[](matchId * 4);
 
-        for (uint256 i=0; i<matchId.current(); i++) {
+        for (uint256 i=0; i<matchId; i++) {
             res[i] = IBettingPair(pairs[i]).getPlayerClaimHistory(_player, _token);
-            res[matchId.current() + i] = uint256(IBettingPair(pairs[i]).getBetStatus());
-            res[matchId.current()*2 + i] = uint256(IBettingPair(pairs[i]).getBetResult());
-            res[matchId.current()*3 + i] = IBettingPair(pairs[i]).getTotalBet(_token);
+            res[matchId + i] = uint256(IBettingPair(pairs[i]).getBetStatus());
+            res[matchId*2 + i] = uint256(IBettingPair(pairs[i]).getBetResult());
+            res[matchId*3 + i] = IBettingPair(pairs[i]).getTotalBet(_token);
         }
 
         return res;
@@ -182,7 +188,7 @@ contract BettingRouter is Ownable {
     * @Function to get the newly creating match id.
     */
     function getMatchId() external view returns (uint256) {
-        return matchId.current();
+        return matchId;
     }
 
     /*
@@ -196,11 +202,12 @@ contract BettingRouter is Ownable {
     * @Function to get match status per token.
     * @This includes total claim amount and total winner count.
     */
-    function _getBetStatsData(IBettingPair.TOKENTYPE _token) internal view returns (uint256[] memory) {
-        uint256[] memory res = new uint256[](2);
-        res[0] = totalClaim[_token];
-        res[1] = totalWinnerCount[_token];
-        return res;
+    function getBetStatsData(IBettingPair.TOKENTYPE _token) external view returns (uint256, uint256) {
+        if (_token == IBettingPair.TOKENTYPE.ETH) {
+            return (totalClaimEth, totalWinnerCountEth);
+        } else {
+            return (totalClaimWci, totalWinnerCountWci);
+        }
     }
 
     /*
@@ -209,8 +216,13 @@ contract BettingRouter is Ownable {
     *   the smart contract, we need to set these values so that they can continue to count.
     */
     function setBetStatsData(uint256 _totalClaim, uint256 _totalWinnerCount, IBettingPair.TOKENTYPE _token) external onlyOwner {
-        totalClaim[_token] = _totalClaim;
-        totalWinnerCount[_token] = _totalWinnerCount;
+        if (_token == IBettingPair.TOKENTYPE.ETH) {
+            totalClaimEth = _totalClaim;
+            totalWinnerCountEth = _totalWinnerCount;
+        } else {
+            totalClaimWci = _totalClaim;
+            totalWinnerCountWci = _totalWinnerCount;
+        }
     }
 
     /*
@@ -218,7 +230,7 @@ contract BettingRouter is Ownable {
     * @Users tax rate(5% or 10%) will be controlled by this value.
     */
     function getWciTokenThreshold() external view returns (uint256) {
-        if (matchId.current() == 0) return 50000 * 10**9;
+        if (matchId == 0) return 50000 * 10**9;
         else return IBettingPair(pairs[0]).getWciTokenThreshold();
     }
 
@@ -247,7 +259,7 @@ contract BettingRouter is Ownable {
     * @Function to set WCI token threshold.
     */
     function setWciTokenThreshold(uint256 _threshold) external onlyOwner {
-        for (uint256 i=0; i<matchId.current(); i++) {
+        for (uint256 i=0; i<matchId; i++) {
             IBettingPair(pairs[i]).setWciTokenThreshold(_threshold);
         }
     }
@@ -256,6 +268,8 @@ contract BettingRouter is Ownable {
     * @Function to deposit ETH for collateral.
     */
     function depositEth() external payable {
+        require(msg.value >= 0.01 ether, "Minimum deposit amount is 0.01");
+
         _lpPool.depositEth(msg.sender, msg.value);
     }
 
@@ -328,8 +342,6 @@ contract BettingRouter is Ownable {
     * @Function to withdraw LP token from contract on owner side.
     */
     function withdrawLPFromContract(IBettingPair.LPTOKENTYPE token, uint256 amount) public doubleChecker {
-        require(amount > 0, "Withdraw amount should be bigger than 0");
-
         if (token == IBettingPair.LPTOKENTYPE.ETH) {
             payable(owner()).transfer(amount);
         } else if (token == IBettingPair.LPTOKENTYPE.USDT) {
